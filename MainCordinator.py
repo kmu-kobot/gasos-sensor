@@ -2,7 +2,8 @@ import serial
 import time
 import requests
 import RPi.GPIO as GPIO
-
+import re
+from firebase import *
 
 class main_cordinator(object):
     def __init__(self, device_num):
@@ -13,52 +14,44 @@ class main_cordinator(object):
         self.xbee.baudrate = 9600
         self.xbee.timeout = 1
         self.xbee.writeTimeout = 1
+        self.Manager_name = "대창너무조아"
+        self.Protected_name = "최지희"
 
         # Init device_id
         self.device_id = device_num
 
-        # Init requests
-        self.url = 'http://127.0.0.1:52275/data'
-        self.data = {'device_id': device_num, 'status': -1}
-        self.headers = {'Content-Type': 'application/json'}
-
-        # Create session
-        self.session = requests.Session()
-
         if not self.xbee.is_open:
             self.xbee.open()
-            print("Port open status: ", xbee.is_open)
+            print("Port open status: ", self.xbee.is_open)
             print("Receive & Transfer start")
 
-    @staticmethod
-    def receive():
-        xbee.flushInput()
-        rsByte = xbee.readline().strip()
+
+    def receive(self):
+        self.xbee.flushInput()
+        rsByte = self.xbee.readline().strip()
         print(rsByte)
 
         return rsByte
 
-    @staticmethod
-    def transfer(data):
+    def transfer(self, data):
         if type(data) == type(b''):
-            xbee.write(data)
+            self.xbee.write(data)
         else:
             data = re.sub('\n', '', data)
             tsData = bytes(data, 'utf-8')
-            xbee.write(tsData)
+            self.xbee.write(tsData)
 
     def update_status(self, status, value):
         self.data = {'device_id': self.device_id, 'status': status, 'value': value}
 
-    def send_data(self, status, value):
-        if not status == '' or not value == '':
-            self.update_status(status, value)
-        try:
-            request_id = self.session.post(self.url, json=self.data, headers=self.headers)
-            if request_id == 200:
-                print("Send success !")
-        except requests.exceptions.RequestException as e:
-            print(e)
+    def send_data(self, fcmCO, fcmLPG):
+        if fcmCO > 85:
+            print("FCM CO")
+            sendMessage(self.Manager_name, "{0} CO가 위험수치입니다.".format(self.Protected_name))
+        if fcmLPG.find('warn') != -1:
+            print("FCM LPG") 
+            sendMessage(self.Manager_name, "{0} 가스가 누출되었습니다.".format(self.Protected_name))
+
 
     def device_off(self):
         time.sleep(0.1)
@@ -67,10 +60,22 @@ class main_cordinator(object):
 
 if __name__ == "__main__":
     dev = main_cordinator(1)
+    doc_ref = db.collection(u'Manager_%s'%dev.Manager_name).document(u'Protected_%s'%dev.Protected_name)
+
+    alter = 0
     while True:
         try:
-            print("Please type the device to check (LPG / CO / EXIT) :")
-            tsString = input()
+            #print("Please type the device to check (LPG / CO / EXIT) :")
+            if alter == 0:
+                tsString = "LPG"
+                alter = 1
+            elif alter == 1:
+                tsString = "CO"
+                alter = 2
+            elif alter == 2:
+                dev.send_data(COStat, LPGrsString)
+                uploadState(doc_ref, COStat, LPGrsString)
+                alter = 0
 
             if tsString == "LPG":
                 dev.transfer(tsString)
@@ -79,15 +84,21 @@ if __name__ == "__main__":
 
                 if rsByte == b'LPGOK':
                     print("LPG status is OK")
+                    LPGrsString = "LPGOK"
 
                 elif rsByte == b'LPGWARN':
                     print("LPG WARNING")
+                    LPGrsString = "LPGWARN"
 
                 # Implements
-                dev.send_data(rsString, '')
+                #dev.send_data(rsString, '')
+                print("Send OK")
+                
+
 
             elif tsString == "CO":
                 dev.transfer(tsString)
+                time.sleep(0.2)
                 rsByte = dev.receive()
                 rsString = rsByte.decode('utf-8')
 
@@ -101,7 +112,8 @@ if __name__ == "__main__":
                     print("COstat = {0}\n".format(COStat))
 
                 # Implements
-                dev.send_data(rsString, COStat)
+                #dev.send_data(rsString, COStat)
+                print("Send OK")
 
             elif tsString == "EXIT":
                 break
