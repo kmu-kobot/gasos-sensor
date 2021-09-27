@@ -4,6 +4,7 @@ import requests
 import RPi.GPIO as GPIO
 import re
 from firebase import *
+from GTTS import tts
 
 class main_cordinator(object):
     def __init__(self, device_num):
@@ -16,6 +17,7 @@ class main_cordinator(object):
         self.xbee.writeTimeout = 1
         self.Manager_name = "대창너무조아"
         self.Protected_name = "최지희"
+        self.address = "101호"
 
         # Init device_id
         self.device_id = device_num
@@ -48,9 +50,12 @@ class main_cordinator(object):
         if fcmCO > 85:
             print("FCM CO")
             sendMessage(self.Manager_name, "{0} CO가 위험수치입니다.".format(self.Protected_name))
+            tts("{0}호 {1}씨 댁에서 CO 누출이 감지되었습니다.".format(self.address, self.Protected_name))
         if fcmLPG.find('warn') != -1:
             print("FCM LPG") 
             sendMessage(self.Manager_name, "{0} 가스가 누출되었습니다.".format(self.Protected_name))
+            tts("{0}호 {1}씨 댁에서 LPG 누출이 감지되었습니다.".format(self.address, self.Protected_name))
+
 
 
     def device_off(self):
