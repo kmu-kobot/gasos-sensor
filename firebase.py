@@ -1,3 +1,6 @@
+#pip3 install firebase_admin
+#pip3 install pyfcm
+
 from logging import warning
 import firebase_admin
 from firebase_admin import credentials
