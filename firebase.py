@@ -55,6 +55,6 @@ def sendMessage(Manager_name, errorMessage):
 
 # Manager, Protected, path= inputUser()
 # uploadState(path,'양호','위험')
-# sendMessage(Manager,'CO가 위험수치 입니다.')
+# sendMessage("대창너무조아",'CO가 위험수치 입니다.')
 
 
